@@ -11,3 +11,18 @@ Testing owner, pet and visit endpoints, checking input validation and record rel
 Java · Spring Boot · Angular · Swagger/OpenAPI · Playwright · GitHub Actions
 
 *Training project using fictional test data.*
+
+## Team Roles
+
+| Role | Name |
+| --- | --- |
+| Quality & Leadership | Sophia Ibi |
+| Requirements and Acceptance | Ethan James German |
+| UI Automation | Jamal Ahmed, Maxwell Cox |
+| Accessibility | Salma Meziane |
+| Security | Jamal Ahmed, Maxwell Cox |
+| API Testing | Syed Hamdani |
+| Agent Governance | Ethan James German |
+| Pipeline Automation | Cameron Wilson |
+| Deployment and Release | Daria Krystyna Dackiewicz |
+| Process and Evidence | Sophia Ibi |
