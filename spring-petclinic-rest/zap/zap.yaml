@@ -1,0 +1,115 @@
+env:
+  contexts:
+  - excludePaths: []
+    name: baseline
+    urls:
+    - http://localhost:9966/petclinic/v3/api-docs
+    - http://localhost:9966/
+  parameters:
+    failOnError: true
+    progressToStdout: false
+jobs:
+- parameters:
+    enableTags: false
+    maxAlertsPerRule: 10
+  type: passiveScan-config
+- alertFilters:
+  - newRisk: False Positive
+    ruleId: '10027'
+    url: .*/swagger-ui/.*
+    urlRegex: true
+  - newRisk: False Positive
+    ruleId: '10110'
+    url: .*/swagger-ui/.*
+    urlRegex: true
+  type: alertFilter
+- parameters:
+    maxDuration: 2
+    url: http://localhost:9966/
+  type: spider
+- parameters:
+    maxDuration: 0
+  type: passiveScan-wait
+- parameters:
+    format: Long
+    summaryFile: /home/zap/zap_out.json
+  rules:
+  - action: FAIL
+    customMessage: ''
+    id: 10003
+  - action: FAIL
+    customMessage: ''
+    id: 10023
+  - action: FAIL
+    customMessage: ''
+    id: 10024
+  - action: FAIL
+    customMessage: ''
+    id: 10037
+  - action: FAIL
+    customMessage: ''
+    id: 10056
+  - action: FAIL
+    customMessage: ''
+    id: 10062
+  - action: FAIL
+    customMessage: ''
+    id: 90022
+  - action: WARN
+    customMessage: ''
+    id: 10020
+  - action: WARN
+    customMessage: ''
+    id: 10021
+  - action: WARN
+    customMessage: ''
+    id: 10036
+  - action: WARN
+    customMessage: ''
+    id: 10038
+  - action: WARN
+    customMessage: ''
+    id: 10063
+  - action: WARN
+    customMessage: ''
+    id: 10098
+  - action: WARN
+    customMessage: ''
+    id: 90004
+  - action: IGNORE
+    customMessage: ''
+    id: 10035
+  - action: IGNORE
+    customMessage: ''
+    id: 10202
+  - action: IGNORE
+    customMessage: ''
+    id: 10096
+  - action: IGNORE
+    customMessage: ''
+    id: 10049
+  - action: IGNORE
+    customMessage: ''
+    id: 10109
+  type: outputSummary
+- parameters:
+    reportDescription: ''
+    reportDir: /zap/wrk/
+    reportFile: reports/zap-baseline-report.html
+    reportTitle: ZAP Scanning Report
+    template: traditional-html
+  type: report
+- parameters:
+    reportDescription: ''
+    reportDir: /zap/wrk/
+    reportFile: reports/zap-baseline-report.md
+    reportTitle: ZAP Scanning Report
+    template: traditional-md
+  type: report
+- parameters:
+    reportDescription: ''
+    reportDir: /zap/wrk/
+    reportFile: reports/zap-baseline-report.json
+    reportTitle: ZAP Scanning Report
+    template: traditional-json
+  type: report
