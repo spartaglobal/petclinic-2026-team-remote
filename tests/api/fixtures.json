@@ -1,0 +1,30 @@
+{
+  "owner": {
+    "firstName": "Test",
+    "lastName": "ApiSuite",
+    "address": "12 Example Road",
+    "city": "Leeds",
+    "telephone": "0123456789"
+  },
+  "secondOwner": {
+    "firstName": "Other",
+    "lastName": "ApiSuite",
+    "address": "14 Example Road",
+    "city": "York",
+    "telephone": "0123456780"
+  },
+  "pet": {
+    "name": "TestPaws",
+    "birthDate": "2020-02-20"
+  },
+  "visit": {
+    "date": "2026-11-12",
+    "description": "Fictional API test checkup"
+  },
+  "invalidTelephones": [
+    "123456789",
+    "12345678901",
+    "abcdefghij"
+  ],
+  "missingId": 2147483647
+}
