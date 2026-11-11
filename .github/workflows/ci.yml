@@ -38,10 +38,21 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
 
-      # - name: Make Maven wrapper executable
-      # - name: Run tests
-      # - name: Coverage report
-      # - name: Coverage gate
+      - name: Make Maven wrapper executable
+        run: |
+          cd spring-petclinic-rest
+          chmod +x mvnw
+
+      - name: Run tests
+        run: |
+          cd spring-petclinic-rest
+          ./mvnw clean test
+
+      - name: Coverage report # we use JaCoCo to generate the report.
+        run: |
+          cd spring-petclinic-rest
+          ./mvnw jacoco:report
+      # coverage gate is it required?
 
       - name: Upload test & coverage reports
         if: always()
@@ -70,9 +81,23 @@ jobs:
         with:
           node-version-file: spring-petclinic-angular/.nvmrc
 
-      # - name: Build jar
-      # - name: Start API
-      # - name: Run Newman
+      - name: Build jar # takes the raw code and compresses into single jar file, and we skip tests since we know by this point they have passed
+        run: |
+          cd spring-petclinic-rest
+          chmod +x mvnw
+          ./mvnw clean package -DskipTests
+      - name: Start API
+        run: |
+          cd spring-petclinic-rest
+          nohup java -jar target/spring-petclinic-rest-*.jar > api.log 2>&1 &
+
+      # Poll the health endpoint instead of a fixed sleep (max 2 minutes).
+      - name: Wait for API to be healthy
+        run: timeout 120 bash -c 'until curl -sf http://localhost:9966/petclinic/actuator/health; do sleep 2; done'
+      - name: Run Newman # runs the postman-tests bash script.
+        run: |
+          cd spring-petclinic-rest
+          bash postman-tests.sh 
 
       - name: Upload Newman report
         if: always()
@@ -96,10 +121,22 @@ jobs:
           cache: npm
           cache-dependency-path: spring-petclinic-angular/package-lock.json
 
-      # - name: Install dependencies
-      # - name: Lint
-      # - name: Unit tests (Vitest)
-      # - name: Build
+      - name: Install dependencies # npm ci - ci stands for clean install
+        run: |
+          cd spring-petclinic-angular
+          npm ci
+      - name: Lint # checks for the formatting and syntax errors.
+        run: |
+          cd spring-petclinic-angular
+          npm run lint 
+      - name: Unit tests (Vitest) # runs frontend unit tests
+        run: |
+          cd spring-petclinic-angular
+          npm run test:ci
+      - name: Build # compiles the build
+        run: |
+          cd spring-petclinic-angular
+          npx ng build
 
   e2e:
     name: Frontend – Playwright E2E & accessibility
@@ -114,9 +151,38 @@ jobs:
           cache: npm
           cache-dependency-path: spring-petclinic-angular/package-lock.json
 
-      # - name: Install dependencies
-      # - name: Install Playwright browsers
-      # - name: Run E2E tests
+      # E2E journeys (register an owner and a pet) need the real API with seed data.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build and start API
+        run: |
+          cd spring-petclinic-rest
+          chmod +x mvnw
+          ./mvnw -B clean package -DskipTests
+          nohup java -jar target/spring-petclinic-rest-*.jar > api.log 2>&1 &
+
+      - name: Wait for API to be healthy
+        run: timeout 120 bash -c 'until curl -sf http://localhost:9966/petclinic/actuator/health; do sleep 2; done'
+
+      - name: Install dependencies
+        run: |
+          cd spring-petclinic-angular
+          npm ci
+      # No --with-deps: GitHub's Ubuntu runners already ship the libraries Chromium needs
+      # (Google Chrome is preinstalled), and --with-deps failed when the runner couldn't
+      # reach Ubuntu's package mirrors (DNS failure, run 43032653119).
+      - name: Install Playwright browsers
+        run: |
+          cd spring-petclinic-angular
+          npx playwright install chromium
+      - name: Run E2E tests
+        run: |
+          cd spring-petclinic-angular
+          npm run e2e
 
       - name: Upload Playwright report
         if: always()
@@ -127,3 +193,46 @@ jobs:
             spring-petclinic-angular/playwright-report/
             spring-petclinic-angular/test-results/
           if-no-files-found: ignore
+
+  zap-scan:
+    name: Security - ZAP Scan # automated security tool that looks for vulnerabilites and creates a report.
+    runs-on: ubuntu-latest
+    needs: e2e
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      # Scan OUR code, not the public Docker Hub image.
+      - name: Build and start API from this repo
+        run: |
+          cd spring-petclinic-rest
+          chmod +x mvnw
+          ./mvnw -B clean package -DskipTests
+          nohup java -jar target/spring-petclinic-rest-*.jar > api.log 2>&1 &
+
+      # Poll the health endpoint instead of a fixed sleep (max 2 minutes).
+      - name: Wait for API to be healthy
+        run: timeout 120 bash -c 'until curl -sf http://localhost:9966/petclinic/actuator/health; do sleep 2; done'
+
+      # Uses the team's script and rules file (zap/zap-baseline.conf): passive baseline only.
+      # Pinned ZAP version. Fails the job if a FAIL rule is hit; WARNs are reported only.
+      - name: ZAP baseline scan
+        env:
+          IMAGE: docker.io/zaproxy/zap-stable:2.17.0
+        run: bash spring-petclinic-rest/zap/run-zap-baseline.sh
+
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: |
+            spring-petclinic-rest/zap/reports/
+            spring-petclinic-rest/api.log
+          if-no-files-found: ignore
+
