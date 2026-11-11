@@ -1,0 +1,121 @@
+# Petclinic environment: the service plus containerised test runners.
+#
+#   docker compose up -d --build --wait          # start API (:9966) and front end (:8080)
+#   docker compose run --rm playwright           # UI + accessibility tests
+#   docker compose run --rm newman               # Postman API tests
+#   docker compose run --rm zap                  # ZAP baseline scan (passive only)
+#   ./scripts/reset.sh                           # back to seeded data
+#
+# The test runners share the API container's network (network_mode: service:api),
+# so "localhost:9966" inside them is the API, exactly as on a laptop. That way the
+# existing test configs work unchanged inside and outside Docker.
+# Versions come from .env.
+
+name: petclinic
+
+services:
+  api:
+    build:
+      context: ./spring-petclinic-rest
+      dockerfile: ../deploy/api.Dockerfile
+      args:
+        TEMURIN_VERSION: ${TEMURIN_VERSION}
+    image: petclinic-api:local
+    ports:
+      - "9966:9966"
+    environment:
+      # Spring maps this to petclinic.security.enable
+      PETCLINIC_SECURITY_ENABLE: ${PETCLINIC_SECURITY_ENABLE:-false}
+
+  frontend:
+    build:
+      context: ./spring-petclinic-angular
+      dockerfile: ../deploy/frontend.Dockerfile
+      additional_contexts:
+        deploy: ./deploy
+      args:
+        NODE_VERSION: ${NODE_VERSION}
+        NGINX_VERSION: ${NGINX_VERSION}
+    image: petclinic-frontend:local
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  playwright:
+    profiles: [tests]
+    build:
+      context: ./spring-petclinic-angular
+      dockerfile: ../deploy/playwright.Dockerfile
+      args:
+        NODE_VERSION: ${NODE_VERSION}
+    image: petclinic-playwright:local
+    network_mode: service:api
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      CI: "true"
+      NG_CLI_ANALYTICS: "false"
+    volumes:
+      # Live test code and reports from the host; dependencies stay inside the image.
+      - ./spring-petclinic-angular/e2e:/app/e2e
+      - ./spring-petclinic-angular/playwright.config.ts:/app/playwright.config.ts
+      - ./spring-petclinic-angular/playwright-report:/app/playwright-report
+      - ./spring-petclinic-angular/test-results:/app/test-results
+    command: ["npx", "playwright", "test"]
+
+  newman:
+    profiles: [tests]
+    build:
+      context: ./deploy
+      dockerfile: newman.Dockerfile
+      args:
+        NODE_VERSION: ${NODE_VERSION}
+        NEWMAN_VERSION: ${NEWMAN_VERSION}
+        NEWMAN_HTMLEXTRA_VERSION: ${NEWMAN_HTMLEXTRA_VERSION}
+    image: petclinic-newman:local
+    network_mode: service:api
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./spring-petclinic-rest/src/test/postman:/etc/newman
+    command:
+      - run
+      - petclinic-nonregressiontests.postman_collection.json
+      - -e
+      - petclinic-env.postman_environment.json
+      - --reporters
+      - cli,htmlextra
+      - --reporter-htmlextra-export
+      - reports/report.html
+      - --timeout-request
+      - "5000"
+
+  zap:
+    profiles: [tests]
+    image: docker.io/zaproxy/zap-stable:${ZAP_VERSION}
+    network_mode: service:api
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./spring-petclinic-rest/zap:/zap/wrk:rw
+    # Same options as zap/run-zap-baseline.sh. Baseline = passive scan only (ground rules).
+    command:
+      - zap-baseline.py
+      - -t
+      - http://localhost:9966/petclinic/v3/api-docs
+      - -c
+      - zap-baseline.conf
+      - -m
+      - "2"
+      - -r
+      - reports/zap-baseline-report.html
+      - -J
+      - reports/zap-baseline-report.json
+      - -w
+      - reports/zap-baseline-report.md
+      - -I
