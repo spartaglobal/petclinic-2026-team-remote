@@ -1,3 +1,5 @@
+> Status update: The initial notes below are historical. Core API automation and the clean-service gate have now run: 50 assertions passed and 32 failed. See [verified results](api-automated-results.md) and the [testing guide](api-testing-guide.md) for current progress, defects and remaining team review. The unchecked list below reflects the earlier stage.
+
 # API Test Plan and Manual Results
 
 ## Scope
