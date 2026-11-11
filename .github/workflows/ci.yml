@@ -172,10 +172,13 @@ jobs:
         run: |
           cd spring-petclinic-angular
           npm ci
-      - name: Install Playwright browsers # --with-deps also installs the Linux libraries Chromium needs
+      # No --with-deps: GitHub's Ubuntu runners already ship the libraries Chromium needs
+      # (Google Chrome is preinstalled), and --with-deps failed when the runner couldn't
+      # reach Ubuntu's package mirrors (DNS failure, run 43032653119).
+      - name: Install Playwright browsers
         run: |
           cd spring-petclinic-angular
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Run E2E tests
         run: |
           cd spring-petclinic-angular
