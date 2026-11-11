@@ -1,51 +1,63 @@
-# Automated API results
+# API test results
 
-## Verified clean run
+Date: 11 November 2026
 
-- Date: 11 November 2026.
-- Branch: `api-testing`.
-- Tested commit: `5f8dff3595aa5dd1f72098b6616b7b3ee3c6122b`.
-- [GitHub Actions run](https://github.com/spartaglobal/petclinic-2026-team-remote/actions/runs/43014729529).
-- [Detailed job logs](https://github.com/spartaglobal/petclinic-2026-team-remote/actions/runs/43014729529/job/130502828036).
-- [Evidence artifact](https://github.com/spartaglobal/petclinic-2026-team-remote/actions/runs/43014729529/artifacts/13851852393): results JSON, Markdown summary, live OpenAPI snapshot, build log, startup log and intentional gate-failure proof. Artifact availability follows the repository retention policy.
+Branch: `api-testing`
 
-The application built and started successfully in a fresh GitHub runner. Tests ran against a separate API process on port 19966 with fresh seeded data. The job ended with exit code 1 because assertions failed, and the evidence artifact was uploaded successfully. No application changes were made to make tests pass.
+## Summary
 
-| Check group | Passed | Failed | Total |
+The API built and started successfully in GitHub Actions. The tests ran against fresh seeded data. The main owner, pet and visit journey worked.
+
+| Checks | Passed | Failed | Total |
 | --- | --- | --- | --- |
-| Behaviour: response codes and saved data | 37 | 3 | 40 |
-| OpenAPI: response contract | 11 | 29 | 40 |
-| Contract loading and validator self-check | 2 | 0 | 2 |
-| Total assertions | 50 | 32 | 82 |
+| What the API does: status codes and saved details | 37 | 3 | 40 |
+| Whether responses match the API documentation | 11 | 29 | 40 |
+| Loading the documentation and checking the test helper | 2 | 0 | 2 |
+| Total | 50 | 32 | 82 |
 
-These are assertion counts, not unique defect counts. The 32 failures map to the five finding groups documented in [the handover guide](api-testing-guide.md).
+There are 40 API scenarios. Each has a behaviour check and a documentation check. The 32 failed checks come from the five findings below, not 32 different bugs.
 
-## What passed
+## Issues found
 
-- Create owner, pet and visit, then retrieve all three with matching saved details.
-- Owner/pet/visit links are present in the successful journey.
-- Search finds the created owner.
-- Missing and blank required owner fields and invalid telephone numbers are rejected.
-- Missing pet and visit fields are rejected.
-- Nonexistent record IDs return 404.
-- Successful responses match the supported keywords in the live OpenAPI schemas.
-- Validator mutation checks reject missing fields, wrong types, bad patterns and invalid dates.
-- Deliberately failing an assertion returns a nonzero exit code, and real failures stop the quality gate.
+### 1. A visit can be added using the wrong owner
 
-## What failed
+Create an owner and pet, then book a visit using a different owner ID with that pet ID. In the manual test, pet 14 belonged to owner 12, but the request used owner 1.
 
-| Finding | Evidence | Next decision |
-| --- | --- | --- |
-| DEF-01: wrong-owner visit | Expected 404; got 201 | Team to triage reproduced relationship bug |
-| DEF-02: malformed pet and visit dates | Proposed validation status 400; got 500 on both | Confirm expected validation response with product owner; triage error handling |
-| DEF-03: no-match search | 404 is not documented for the operation | Agree desired behaviour and align the contract |
-| DEF-04: error media types | application/problem+json returned where application/json is declared | Align documentation with intended error format |
-| DEF-05: missing-record error body | Empty response where a JSON error is declared | Agree whether to return JSON or document an empty response |
+Expected: 404 and no visit created, as described in Swagger. Actual: 201 and visit 7 was saved. Retrieving pet 14 confirmed the wrong-owner request had added the visit. Proposed severity: High; the team needs to confirm it.
 
-The no-match behaviour check records the observed 404; the separate contract check fails. It is not a decision that 404 is the desired product behaviour. Likewise, a 400 behaviour pass can coexist with a contract failure when the error media type differs from its documentation.
+### 2. Invalid dates cause server errors
 
-## Handover
+Send `not-a-date` as a pet birthDate or visit date, with the other details valid. Both returned 500 with `HttpMessageNotReadableException`.
 
-Run `bash tests/api/gate.sh` from the repository root with Java 25 and Node 24. See [the guide](api-testing-guide.md) for the test files, manual results, reproduction steps and scope. The pipeline owner can call the same command inside the combined team pipeline. This separate API job is not the UI, accessibility or ZAP gate.
+The tests expect a validation response of 400. Confirm that expectation with the product owner. Proposed severity: Medium.
 
-Remaining work is team review, defect triage and product-owner clarification. Authentication-role tests belong with the security owner. Update/delete endpoints and performance testing are outside this core API gate. The branch has not been merged into main.
+### 3. A search with no matches returns an undocumented 404
+
+GET `/api/owners?lastName=NoSuchApiOwner` returned 404 with an empty body. That status is not listed for this request in Swagger.
+
+Ask whether no matches should return an empty list with 200, or a documented 404. The behaviour test records the observed 404; the documentation check fails. Proposed severity: Low.
+
+### 4. Error responses use a different format from the documentation
+
+Send an owner request without firstName. The API correctly rejects it with 400, but returns content type `application/problem+json`. Swagger lists `application/json`. This also affects other invalid requests.
+
+The error format and documentation need to agree. Proposed severity: Low.
+
+### 5. Missing records return an empty error response
+
+GET an owner, pet or visit with ID `2147483647`. Each returned 404 with an empty body, although Swagger describes a JSON error body. The same happened when adding a pet to a missing owner.
+
+Agree whether the API should return the JSON error or the documentation should describe an empty response. Proposed severity: Low.
+
+## Evidence
+
+- [GitHub Actions run](https://github.com/spartaglobal/petclinic-2026-team-remote/actions/runs/43014729529)
+- [Detailed logs](https://github.com/spartaglobal/petclinic-2026-team-remote/actions/runs/43014729529/job/130502828036)
+- [Download reports](https://github.com/spartaglobal/petclinic-2026-team-remote/actions/runs/43014729529/artifacts/13851852393), available while GitHub retains the artifact
+- Tested commit: `5f8dff3595aa5dd1f72098b6616b7b3ee3c6122b`
+
+The reports include the individual results, API documentation snapshot, build/startup logs and a deliberate failure check. The job returned exit code 1 because checks failed. The application was not changed to make tests pass.
+
+## Next steps
+
+Review the branch with a teammate, agree the findings with the product owner, and give the pipeline person the command `bash tests/api/gate.sh`. The branch has not been merged. See [the guide](api-testing-guide.md) for how the files work.
