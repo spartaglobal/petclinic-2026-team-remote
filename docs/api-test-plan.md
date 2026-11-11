@@ -4,7 +4,7 @@
 
 Check owners, pets and visits through the local Pet Clinic API. Automate the core journey, validate responses against OpenAPI, and provide an API quality gate.
 
-- Tester: MiqyD
+- Tester: Syed Hamdani
 - Date: 11 November 2026
 - Environment: local API at `http://localhost:9966/petclinic/api`
 - Method so far: manual requests through Swagger UI, with AI assistance
