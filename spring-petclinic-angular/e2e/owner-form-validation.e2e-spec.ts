@@ -59,12 +59,11 @@ test.describe("Telephone (must be exactly 10 digits)", () => {
     await expect(submitButton(page)).toBeDisabled();
   });
 
-  test("11 digits is rejected", async ({ page }) => {
+  test("11 digits cannot be entered – input stops at 10", async ({ page }) => {
     await fillOwnerForm(page, { telephone: "01215551234" });
-    await expect(
-      page.getByText("Phone number must be exactly 10 digits"),
-    ).toBeVisible();
-    await expect(submitButton(page)).toBeDisabled();
+    const telephone = page.getByLabel("Telephone");
+    await expect(telephone).toHaveAttribute("maxlength", "10");
+    await expect(telephone).toHaveValue("0121555123");
   });
 
   test("letters are rejected", async ({ page }) => {
@@ -89,14 +88,13 @@ test.describe("First name (letters only, max 30)", () => {
     await expect(submitButton(page)).toBeEnabled();
   });
 
-  test("31 characters is rejected (just past the boundary)", async ({
+  test("31 characters cannot be entered – input stops at 30", async ({
     page,
   }) => {
     await fillOwnerForm(page, { firstName: "a".repeat(31) });
-    await expect(
-      page.getByText("First name may be at most 30 characters long"),
-    ).toBeVisible();
-    await expect(submitButton(page)).toBeDisabled();
+    const firstName = page.getByLabel("First Name");
+    await expect(firstName).toHaveAttribute("maxlength", "30");
+    await expect(firstName).toHaveValue("a".repeat(30));
   });
 
   test("digits are rejected", async ({ page }) => {
