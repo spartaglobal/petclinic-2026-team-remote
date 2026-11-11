@@ -38,10 +38,24 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
 
-      # - name: Make Maven wrapper executable
-      # - name: Run tests
-      # - name: Coverage report
-      # - name: Coverage gate
+      - name: Make Maven wrapper executable
+        run: |
+          cd spring-petclinic-rest
+          chmod +x mvnw
+
+      - name: Run tests
+        run: |
+          cd spring-petclinic-rest
+          ./mvnw clean test
+
+      - name: Coverage report # we use JaCoCo to generate the report.
+        run: |
+          cd spring-petclinic-rest
+          ./mvnw jacoco:report
+      - name: Coverage gate
+        run: |
+          cd spring-petclinic-rest
+          ./mvnw jacoco:check
 
       - name: Upload test & coverage reports
         if: always()
@@ -70,9 +84,20 @@ jobs:
         with:
           node-version-file: spring-petclinic-angular/.nvmrc
 
-      # - name: Build jar
-      # - name: Start API
-      # - name: Run Newman
+      - name: Build jar # takes the raw code and compresses into single jar file, and we skip tests since we know by this point they have passed
+        run: |
+          cd spring-petclinic-rest
+          chmod +x mvnw
+          ./mvnw clean package -DskipTests
+      - name: Start API
+        run: |
+          cd spring-petclinic-rest
+          java -jar target/*.jar &
+          sleep 20
+      - name: Run Newman # runs the postman-tests bash script.
+        run: |
+          cd spring-petclinic-rest
+          bash postman-tests.sh 
 
       - name: Upload Newman report
         if: always()
@@ -96,10 +121,22 @@ jobs:
           cache: npm
           cache-dependency-path: spring-petclinic-angular/package-lock.json
 
-      # - name: Install dependencies
-      # - name: Lint
-      # - name: Unit tests (Vitest)
-      # - name: Build
+      - name: Install dependencies # npm ci - ci stands for clean install
+        run: |
+          cd spring-petclinic-angular
+          npm ci
+      - name: Lint # checks for the formatting and syntax errors.
+        run: |
+          cd spring-petclinic-angular
+          npm run lint 
+      - name: Unit tests (Vitest) # runs frontend unit tests
+        run: |
+          cd spring-petclinic-angular
+          npm run test:ci
+      - name: Build # compiles the build
+        run: |
+          cd spring-petclinic-angular
+          npx ng build
 
   e2e:
     name: Frontend – Playwright E2E & accessibility
@@ -114,9 +151,18 @@ jobs:
           cache: npm
           cache-dependency-path: spring-petclinic-angular/package-lock.json
 
-      # - name: Install dependencies
-      # - name: Install Playwright browsers
-      # - name: Run E2E tests
+      - name: Install dependencies
+        run: |
+          cd spring-petclinic-angular
+          npm ci
+      - name: Install Playwright browsers # --with-deps does...
+        run: |
+          cd spring-petclinic-angular
+          npx playwright install --with-deps 
+      - name: Run E2E tests
+        run: |
+          cd spring-petclinic-angular
+          npm run e2e
 
       - name: Upload Playwright report
         if: always()
@@ -127,3 +173,22 @@ jobs:
             spring-petclinic-angular/playwright-report/
             spring-petclinic-angular/test-results/
           if-no-files-found: ignore
+
+  zap-scan:
+    name: Security - ZAP Scan # automated security tool that looks for vulnerabilites and creates a report.
+    runs-on: ubuntu-latest
+    needs: e2e
+    steps: 
+      - uses: actions/checkout@v4
+
+      - name: Boot application for scanning
+        run: |
+          docker run -d -p 9966:9966 springcommunity/spring-petclinic-rest
+          sleep 20
+
+      - name: ZAP Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:9966/petclinic/'
+          fail_action: true
+
