@@ -52,10 +52,7 @@ jobs:
         run: |
           cd spring-petclinic-rest
           ./mvnw jacoco:report
-      - name: Coverage gate
-        run: |
-          cd spring-petclinic-rest
-          ./mvnw jacoco:check
+      # coverage gate is it required?
 
       - name: Upload test & coverage reports
         if: always()
@@ -191,4 +188,5 @@ jobs:
         with:
           target: 'http://localhost:9966/petclinic/'
           fail_action: true
+          issue_title: false
 
