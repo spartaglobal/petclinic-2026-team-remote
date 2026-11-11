@@ -1,55 +1,88 @@
-> Status update: The initial notes below are historical. Core API automation and the clean-service gate have now run: 50 assertions passed and 32 failed. See [verified results](api-automated-results.md) and the [testing guide](api-testing-guide.md) for current progress, defects and remaining team review. The unchecked list below reflects the earlier stage.
+# API test plan
 
-# API Test Plan and Manual Results
+Tester: Syed Hamdani
 
-## Scope
+Date: 11 November 2026
 
-Check owners, pets and visits through the local Pet Clinic API. Automate the core journey, validate responses against OpenAPI, and provide an API quality gate.
+Branch: `api-testing`
 
-- Tester: Syed Hamdani
-- Date: 11 November 2026
-- Environment: local API at `http://localhost:9966/petclinic/api`
-- Method so far: manual requests through Swagger UI
-- Data: fictional test records only
+## Aim
 
-## Checks completed
+Check that owners, pets and visits can be created and retrieved correctly, and that invalid requests are handled properly. Only fictional data is used.
 
-| ID | Check | Expected result | Observed result | Status |
-| --- | --- | --- | --- | --- |
-| API-01 | GET `/owners` | 200 and owner records | 200; owner records returned | Passed |
-| API-02 | POST `/owners` with valid fictional details | 201 and a new owner ID | 201; Test ApiCheck created with ID 11 | Passed |
-| API-03 | GET `/owners/11` | 200 and details matching the created owner | 200; all five submitted fields matched; pets was an empty array | Passed |
-| API-04 | POST `/owners` with an 11-digit telephone | Reject input that does not satisfy the documented telephone constraint | 400; validation message required exactly 10 digits | Rejection observed; confirm constraint against OpenAPI |
+## Work completed
 
-The 11-digit telephone was initially intended as valid test data. The API rejected it, and it was corrected to a fictional 10-digit value before successful creation. This was a test-data correction, not a confirmed product defect.
+- [x] Explore the API in Swagger.
+- [x] Create an owner, add a pet and book a visit.
+- [x] Retrieve the records and check the details and links.
+- [x] Try missing fields, invalid phone numbers and dates, and missing records.
+- [x] Add automated checks with test data in a separate file.
+- [x] Check responses against the live OpenAPI documentation.
+- [x] Run the API checks in GitHub Actions with fresh seeded data.
+- [x] Check that a failed test makes the API gate fail.
+- [x] Save the results and record the issues found.
 
-## Successful owner request
+The API gate is available for the pipeline owner to include in the team’s combined test command. Connecting it to the other team checks still needs coordination.
 
-```json
-{
-  "firstName": "Test",
-  "lastName": "ApiCheck",
-  "address": "12 Example Road",
-  "city": "Leeds",
-  "telephone": "0123456789"
-}
-```
+## Manual checks in Swagger
 
-Owner ID 11 is evidence from this run only. Capture returned IDs in automated tests rather than hardcoding them. Restarting the default seeded API resets these records.
+These 34 requests were run in Safari at about 11:38–11:41. The API was running at `http://localhost:9966/petclinic`.
 
-## Next checks — not yet executed
+Owner 12, pet 14 and visit 5 were created for the main journey. A request with the wrong owner unexpectedly created visit 7. These IDs are just for this run; the automated tests capture new IDs each time.
 
-- [ ] Confirm required fields, validation constraints and status codes in OpenAPI and the team acceptance criteria. Record product-owner answers for unclear business rules.
-- [ ] Add a pet to the test owner using a valid pet type. Retrieve it and verify the owner relationship.
-- [ ] Book a visit for that pet. Retrieve it and verify the pet relationship.
-- [ ] Test missing required fields, invalid values and nonexistent owner, pet and visit IDs.
-- [ ] Automate the owner → pet → visit journey with test data separate from test logic.
-- [ ] Validate owner, pet and visit responses against the OpenAPI specification.
-- [ ] Connect the API test command to the team pipeline; verify a failed assertion makes the gate fail.
-- [ ] Run from a fresh service reset without manual data fixes.
+| ID | Check | HTTP status | Note |
+| --- | --- | --- | --- |
+| API-01 | List owners | 200 | Expected behaviour observed |
+| API-02 | Search Franklin | 200 | Expected behaviour observed |
+| API-03 | Search NoSuchApiOwner | 404 | Undocumented response; DEF-03 |
+| API-04 | Create owner | 201 | Expected behaviour observed |
+| API-05 | Owner missing firstName | 400 | Expected behaviour observed |
+| API-06 | Owner missing lastName | 400 | Expected behaviour observed |
+| API-07 | Owner missing address | 400 | Expected behaviour observed |
+| API-08 | Owner missing city | 400 | Expected behaviour observed |
+| API-09 | Owner missing telephone | 400 | Expected behaviour observed |
+| API-10 | Invalid telephone 123456789 | 400 | Expected behaviour observed |
+| API-11 | Invalid telephone 12345678901 | 400 | Expected behaviour observed |
+| API-12 | Invalid telephone abcdefghij | 400 | Expected behaviour observed |
+| API-13 | List pet types | 200 | Expected behaviour observed |
+| API-14 | Create pet | 201 | Expected behaviour observed |
+| API-15 | Pet missing name | 400 | Expected behaviour observed |
+| API-16 | Pet missing birthDate | 400 | Expected behaviour observed |
+| API-17 | Pet missing type | 400 | Expected behaviour observed |
+| API-18 | Pet blank name | 400 | Expected behaviour observed |
+| API-19 | Pet invalid date | 500 | Unexpected server error; DEF-02 |
+| API-20 | Pet unknown type | 404 | Resource rejected/not found; inspect error contract |
+| API-21 | Add pet to missing owner | 404 | Resource rejected/not found; inspect error contract |
+| API-22 | Create visit | 201 | Expected behaviour observed |
+| API-23 | Visit missing date | 400 | Expected behaviour observed |
+| API-24 | Visit missing description | 400 | Expected behaviour observed |
+| API-25 | Visit blank description | 400 | Expected behaviour observed |
+| API-26 | Visit invalid date | 500 | Unexpected server error; DEF-02 |
+| API-27 | Visit missing pet | 404 | Resource rejected/not found; inspect error contract |
+| API-28 | Visit wrong owner | 201 | Unexpected creation; DEF-01 |
+| API-29 | GET /api/owners/{ownerId} ID 12 | 200 | Expected behaviour observed |
+| API-30 | GET /api/owners/{ownerId} ID 2147483647 | 404 | Resource rejected/not found; inspect error contract |
+| API-31 | GET /api/pets/{petId} ID 14 | 200 | Expected behaviour observed |
+| API-32 | GET /api/pets/{petId} ID 2147483647 | 404 | Resource rejected/not found; inspect error contract |
+| API-33 | GET /api/visits/{visitId} ID 5 | 200 | Expected behaviour observed |
+| API-34 | GET /api/visits/{visitId} ID 2147483647 | 404 | Resource rejected/not found; inspect error contract |
 
-## Evidence and review
+The saved owner included pet 14 and visit 5. Retrieving pet 14 confirmed that it belonged to owner 12 and included visits 5 and 7. Retrieving visit 5 returned the submitted date and description.
 
-The results above are a written summary of observed Swagger responses; no automated suite or schema validation has been completed yet. Confirm failures as product, test, environment or data issues before logging defects.
+Earlier setup checks also created Test ApiCheck as owner 11 and retrieved it successfully. An 11-digit phone number was rejected; the live API documentation confirms that this demo requires exactly 10 digits.
+
+## Still to agree
+
+- [ ] Review the test code with a teammate.
+- [ ] Agree the severity and owner of each finding.
+- [ ] Ask the product owner about no-match searches, past visits, future pet birth dates and duplicate owners.
+- [ ] Coordinate authentication checks with the security person.
+- [ ] Include this API gate in the combined team pipeline.
+
+Update/delete endpoints, load testing and the other team roles are outside these core API checks. The schema checker covers the rules used in the current responses; it fails if it meets a rule it does not support. Tests do not automatically retry.
+
+See [the results](api-automated-results.md) and [the simple guide](api-testing-guide.md).
+
+## Review record
 
 AI assisted the Swagger requests and drafted this document. Human review of this document and any generated test code is pending; record that review in the team agent log before merging.
