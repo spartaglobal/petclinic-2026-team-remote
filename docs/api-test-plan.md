@@ -85,4 +85,4 @@ See [the results](api-automated-results.md) and [the simple guide](api-testing-g
 
 ## Review record
 
-AI assisted the Swagger requests and drafted this document. Human review of this document and any generated test code is pending; record that review in the team agent log before merging.
+A teammate still needs to review the test plan and code before merging.
